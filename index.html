@@ -2,317 +2,173 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tỏ Tình Lãng Mạn</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drone Show - Anh yêu em 💖</title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: #000020;
-      overflow: hidden;
-      font-family: 'Segoe UI', sans-serif;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
+    html, body { margin:0; padding:0; overflow:hidden; background:black; width:100%; height:100%; }
+    canvas { position:absolute; top:0; left:0; display:block; }
+    #footer {
+      position:fixed; right:6px; bottom:4px;
+      font-family:'Segoe UI','Roboto',sans-serif; font-size:2vw; color:#00ffee;
+      text-shadow:0 0 1px #00ffee,0 0 3px #00ffee,0 0 6px #00ffff;
+      pointer-events:none; user-select:none;
     }
-
-    #popup-container {
-      background: #222;
-      padding: 20px;
-      border-radius: 10px;
-      width: 320px;
-      box-shadow: 0 0 15px #00bfff;
-      text-align: center;
-      z-index: 3000;
+    #popup {
+      position:fixed; bottom:50%; left:50%; transform:translate(-50%, 50%);
+      font-size:5vw; font-family:'Segoe UI','Roboto',sans-serif;
+      background:rgba(255,182,193,0.2); color:#ff99cc;
+      border:1px solid #ff99cc; padding:10px 18px;
+      border-radius:12px; cursor:pointer;
+      animation:glow 3s ease-in-out infinite;
+      z-index:100;
+      max-width:90%; text-align:center;
     }
-
-    #question {
-      font-size: 1.2em;
-      margin-bottom: 15px;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 8px;
-      font-size: 1em;
-      border-radius: 5px;
-      border: 1px solid #00bfff;
-      margin-bottom: 15px;
-      box-sizing: border-box;
-      color: black;
-    }
-
-    button {
-      background: #00bfff;
-      border: none;
-      padding: 10px 20px;
-      color: white;
-      font-weight: 600;
-      font-size: 1em;
-      border-radius: 5px;
-      cursor: pointer;
-      box-shadow: 0 0 10px #00bfff;
-      transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-      background: #0080b3;
-    }
-
-    canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-      z-index: 1000;
-    }
-
-    @keyframes floatUpDown {
-      0% { transform: translateY(0); }
-      100% { transform: translateY(-20px); }
+    @keyframes glow {
+      0%,100% { box-shadow:0 0 8px #ff99cc; opacity:1; }
+      50% { box-shadow:0 0 16px #ff66cc; opacity:0.6; }
     }
   </style>
 </head>
 <body>
-  <div id="popup-container">
-    <div id="question"></div>
-    <input type="text" id="answer" autocomplete="off" />
-    <button id="next-btn">Kế tiếp</button>
-  </div>
-
-  <canvas id="heart-canvas"></canvas>
-
-  <!-- Nhạc nền -->
-  <audio id="background-music" 
-         src="https://loadedmedia.store/uploads/music/2025/05/LBI-Jumping-Machine.mp3" 
-         autoplay muted loop></audio>
+  <canvas id="matrix" style="display:none;"></canvas>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <div id="footer" style="display:none;">Nam Sun ♥ Ngọc Thuận</div>
+  <div id="popup">Yêu em 💖</div>
+  <audio id="bgmusic" preload="auto" loop>
+    <source src="https://files.catbox.moe/l3ngqe.mp3" type="audio/mp3">
+  </audio>
 
   <script>
-    const questions = [
-      "Người em yêu thích nhất là ai?",
-      "Bài hát em thích nhất là gì?",
-      "Khi buồn em muốn làm gì nhất?",
-      "Em muốn ở bên ai nhất?",
-      "Khi cô đơn em nhớ ai?",
-      "Em buồn em có nhớ anh không?"
-    ];
+    const popup = document.getElementById("popup");
+    const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+    const matrixCanvas = document.getElementById("matrix"), mtx = matrixCanvas.getContext("2d");
+    const footer = document.getElementById("footer");
+    const music = document.getElementById("bgmusic");
 
-    const baseMessages = [
-      "Anh yêu em", "Em là định mệnh của anh", "Mãi bên nhau nhé",
-      "Anh nhớ em từng giây phút", "Không ai thay thế được em",
-      "Chỉ cần em hạnh phúc, anh sẽ luôn chờ", "Tình yêu anh dành cho em là mãi mãi",
-      "Ngọc Thuận, anh rất yêu em", "Hãy cùng nhau đi đến cuối con đường nhé",
-      "Anh thề sẽ luôn bảo vệ em"
-    ];
-    const loveMessages = Array.from({ length: 1000 }, () =>
-      baseMessages[Math.floor(Math.random() * baseMessages.length)]
-    );
-
-    let currentQuestion = 0;
-    const questionEl = document.getElementById('question');
-    const answerEl = document.getElementById('answer');
-    const nextBtn = document.getElementById('next-btn');
-    const popupContainer = document.getElementById('popup-container');
-    const music = document.getElementById('background-music');
-    let musicStarted = false;
-
-    function showQuestion(index) {
-      questionEl.textContent = questions[index];
-      answerEl.value = '';
-      answerEl.focus();
+    function resizeCanvas() {
+      canvas.width = matrixCanvas.width = window.innerWidth;
+      canvas.height = matrixCanvas.height = window.innerHeight;
     }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
 
-    answerEl.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") nextBtn.click();
-    });
+    let drones = [], textQueue = ["Ngọc Thuận", "Anh yêu em"], currentTextIndex = 0;
 
-    nextBtn.addEventListener('click', () => {
-      if (!musicStarted) {
-        music.muted = false;
-        music.play().catch(() => {});
-        musicStarted = true;
-      }
-      alert("Anh yêu em");
-      currentQuestion++;
-      if (currentQuestion < questions.length) {
-        showQuestion(currentQuestion);
-      } else {
-        popupContainer.style.display = 'none';
-        startHeartRain();
-      }
-    });
-
-    showQuestion(currentQuestion);
-
-    const canvas = document.getElementById('heart-canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    let hearts = [], snowflakes = [], heartParticles = [];
-    let mouseX = window.innerWidth / 2;
-    let mouseY = window.innerHeight / 2;
-
-    class Snowflake {
-      constructor() { this.reset(); }
-      reset() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * -canvas.height;
-        this.radius = Math.random() * 2 + 1;
-        this.speedY = Math.random() * 1 + 0.5;
-        this.wind = Math.random() * 0.5 - 0.25;
+    class Drone {
+      constructor(x,y,color="#ff6699") {
+        this.x=Math.random()*canvas.width; this.y=canvas.height+Math.random()*300;
+        this.tx=x; this.ty=y; this.color=color;
+        this.size=1.5+Math.random(); this.speed=0.02+Math.random()*0.015;
+        this.state="form"; this.vx=(Math.random()-0.5)*2.5; this.vy=(Math.random()-0.5)*2.5;
       }
       update() {
-        this.y += this.speedY;
-        this.x += this.wind;
-        if (this.y > canvas.height) this.reset();
+        if(this.state==="form"){
+          this.x+=(this.tx-this.x)*this.speed;
+          this.y+=(this.ty-this.y)*this.speed;
+        } else { this.x+=this.vx; this.y+=this.vy; }
       }
-      draw() {
-        ctx.fillStyle = "#fff";
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      draw(){ ctx.beginPath(); ctx.arc(this.x,this.y,this.size,0,2*Math.PI); ctx.fillStyle=this.color; ctx.fill(); }
     }
 
-    class Heart {
-      constructor() { this.reset(); }
-      reset() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.size = Math.random() * 6 + 4;
-        this.alpha = Math.random() * 0.5 + 0.5;
-        this.speedY = Math.random() * 0.3 + 0.2;
-      }
-      update() {
-        this.y -= this.speedY;
-        if (this.y < -10) this.reset();
-      }
-      draw() {
-        ctx.globalAlpha = this.alpha;
-        ctx.fillStyle = "#00bfff";
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.bezierCurveTo(this.x - this.size / 2, this.y - this.size / 2,
-                          this.x - this.size, this.y + this.size / 2,
-                          this.x, this.y + this.size);
-        ctx.bezierCurveTo(this.x + this.size, this.y + this.size / 2,
-                          this.x + this.size / 2, this.y - this.size / 2,
-                          this.x, this.y);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
+    function getTextPositions(text, fontSize = canvas.width < 500 ? 70 : 100) {
+      const off = document.createElement("canvas"), octx = off.getContext("2d");
+      off.width = canvas.width; off.height = canvas.height;
+      octx.fillStyle = "#ff6699";
+      octx.font = `bold ${fontSize}px 'Segoe UI','Roboto',sans-serif`;
+      octx.textAlign="center"; octx.textBaseline="middle";
+      octx.fillText(text, canvas.width/2, canvas.height/2);
+      const img = octx.getImageData(0,0,canvas.width,canvas.height).data;
+      const pos = [];
+      for(let y=0;y<canvas.height;y+=6)
+        for(let x=0;x<canvas.width;x+=6)
+          if(img[(y*canvas.width+x)*4+3]>128) pos.push({x,y});
+      return pos;
     }
 
-    class HeartParticle {
-      constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.size = Math.random() * 4 + 2;
-        this.speed = Math.random() * 2 + 1;
-        this.alpha = 1;
-        this.angle = Math.atan2(mouseY - y, mouseX - x);
+    function setDronesToText(text) {
+      drones = getTextPositions(text).map(p => new Drone(p.x,p.y));
+    }
+
+    function disperseDrones(cb){
+      drones.forEach(d => d.state="disperse");
+      setTimeout(cb, 4000); // chậm tan
+    }
+
+    function startHeartEffect(){
+      const cx=canvas.width/2, cy=canvas.height/2, particles=[];
+      const heartFn = (t,scale=10)=>{ return {
+        x:cx+16*Math.pow(Math.sin(t),3)*scale,
+        y:cy-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))*scale
+      }};
+      for(let i=0;i<1000;i++){
+        const t=Math.random()*2*Math.PI;
+        const p=heartFn(t,9+Math.random()*1.5);
+        particles.push({x:p.x,y:p.y,dx:(Math.random()-0.5)*0.3,dy:(Math.random()-0.5)*0.3,alpha:Math.random()*0.8+0.2,size:Math.random()*1.2+0.8});
       }
-
-      update() {
-        this.x += this.speed * Math.cos(this.angle);
-        this.y += this.speed * Math.sin(this.angle);
-        this.alpha -= 0.01;
-      }
-
-      draw() {
-        ctx.globalAlpha = this.alpha;
-        ctx.fillStyle = "#00bfff";
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.bezierCurveTo(this.x - this.size / 2, this.y - this.size / 2,
-                          this.x - this.size, this.y + this.size / 2,
-                          this.x, this.y + this.size);
-        ctx.bezierCurveTo(this.x + this.size, this.y + this.size / 2,
-                          this.x + this.size / 2, this.y - this.size / 2,
-                          this.x, this.y);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
+      (function anim(){
+        ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        particles.forEach(p=>{
+          ctx.beginPath(); ctx.fillStyle=`rgba(255,100,150,${p.alpha})`;
+          ctx.arc(p.x,p.y,p.size,0,2*Math.PI); ctx.fill();
+          p.x+=p.dx; p.y+=p.dy; p.alpha-=0.0015;
+          if(p.alpha<=0){
+            const t=Math.random()*2*Math.PI, np=heartFn(t,9+Math.random()*1.5);
+            Object.assign(p,{x:np.x,y:np.y,alpha:Math.random()*0.8+0.2,size:Math.random()*1.2+0.8,
+              dx:(Math.random()-0.5)*0.3,dy:(Math.random()-0.5)*0.3});
+          }
+        });
+        requestAnimationFrame(anim);
+      })();
     }
 
-    function createHearts(n) {
-      for (let i = 0; i < n; i++) hearts.push(new Heart());
-    }
-    function createSnow(n) {
-      for (let i = 0; i < n; i++) snowflakes.push(new Snowflake());
-    }
+    let matrixCols, matrixDrops;
+    const matrixText = ["Anh yêu em"];
 
-    function drawScene() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      snowflakes.forEach(f => { f.update(); f.draw(); });
-      hearts.forEach(h => { h.update(); h.draw(); });
-      heartParticles.forEach(p => { p.update(); p.draw(); });
-      heartParticles = heartParticles.filter(p => p.alpha > 0);
-    }
-
-    function createLovePopup(msg) {
-      const p = document.createElement('div');
-      p.style.position = 'fixed';
-      p.style.top = `${Math.random() * (innerHeight - 150) + 50}px`;
-      p.style.left = `${Math.random() * (innerWidth - 250) + 50}px`;
-      p.style.width = '220px';
-      p.style.padding = '10px 15px';
-      p.style.background = 'rgba(0,191,255,0.9)';
-      p.style.color = 'white';
-      p.style.fontSize = '16px';
-      p.style.borderRadius = '10px';
-      p.style.boxShadow = '0 0 10px #00bfff';
-      p.style.zIndex = '2000';
-      p.style.cursor = 'pointer';
-      p.style.animation = 'floatUpDown 2.5s ease-in-out infinite alternate';
-      p.innerHTML = msg;
-      p.addEventListener('click', () => p.remove());
-      document.body.appendChild(p);
-      setTimeout(() => { if (p.parentElement) p.remove(); }, 10000);
-    }
-
-    function generateLovePopupsInfinite() {
+    function startMatrix(){
+      matrixCanvas.style.display = "block";
+      matrixCols = Math.floor(canvas.width / 14);
+      matrixDrops = Array(matrixCols).fill(1);
       setInterval(() => {
-        const msg = loveMessages[Math.floor(Math.random() * loveMessages.length)];
-        createLovePopup(msg);
+        mtx.fillStyle = "rgba(0,0,0,0.1)";
+        mtx.fillRect(0,0,matrixCanvas.width,matrixCanvas.height);
+        mtx.fillStyle = "rgba(0,255,204,0.3)";
+        mtx.font = "14px monospace";
+        for(let i=0;i<matrixCols;i++){
+          const char = matrixText[0].charAt(Math.floor(Math.random()*matrixText[0].length));
+          mtx.fillText(char, i*14, matrixDrops[i]*14);
+          if(matrixDrops[i]*14 > canvas.height && Math.random()>0.99) matrixDrops[i] = 0;
+          matrixDrops[i]++;
+        }
       }, 80);
     }
 
-    function startHeartRain() {
-      createHearts(150);
-      createSnow(100);
-      function animate() {
-        drawScene();
-        requestAnimationFrame(animate);
+    function nextPhase(){
+      if(currentTextIndex < textQueue.length){
+        setDronesToText(textQueue[currentTextIndex]);
+        currentTextIndex++;
+        setTimeout(() => {
+          setTimeout(() => disperseDrones(nextPhase), 3000); // dừng lại lâu
+        }, 3000); // hiện chữ lâu hơn
+      } else {
+        startHeartEffect();
+        setTimeout(() => startMatrix(), 4000);
       }
-      animate();
-      generateLovePopupsInfinite();
     }
 
-    window.addEventListener('resize', () => {
-      canvas.width = innerWidth;
-      canvas.height = innerHeight;
-    });
+    function animate(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drones.forEach(d => { d.update(); d.draw(); });
+      requestAnimationFrame(animate);
+    }
 
-    document.addEventListener('mousemove', e => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      for (let i = 0; i < 2; i++) {
-        heartParticles.push(new HeartParticle(
-          Math.random() * canvas.width,
-          Math.random() * canvas.height
-        ));
-      }
-    });
-
-    window.addEventListener('DOMContentLoaded', () => {
-      music.muted = false;
-      music.play().catch(() => {});
-    });
+    popup.onclick = () => {
+      music.play();
+      popup.style.display = "none";
+      canvas.style.display = "block";
+      footer.style.display = "block";
+      nextPhase();
+      animate();
+    };
   </script>
 </body>
 </html>
